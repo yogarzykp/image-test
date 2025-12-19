@@ -27,13 +27,11 @@ CONFIG_DIR = "core/config/"
 OUTPUT_DIR = "core/outputs/"
 CACHE_DIR = "~/.cache/huggingface"
 CACHE_DIR_HUB = os.path.expanduser("~/.cache/huggingface/hub")
-GRPO_MINER_OUTPUT_DIR = "/root/.cache/huggingface/hub/trained_repo"
-MINER_CONTAINER_SCRIPTS_PATH = "/app/scripts"
 DIFFUSION_DATASET_DIR = "core/dataset/images"
 CONTAINER_FLUX_PATH = "/app/flux/unet"
 
-DIFFUSION_SDXL_REPEATS = 5
-DIFFUSION_FLUX_REPEATS = 1
+DIFFUSION_SDXL_REPEATS = 20
+DIFFUSION_FLUX_REPEATS = 4
 DIFFUSION_DEFAULT_INSTANCE_PROMPT = "lora"
 DIFFUSION_DEFAULT_CLASS_PROMPT = "style"
 
@@ -53,12 +51,12 @@ HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
 WANDB_TOKEN = os.getenv("WANDB_TOKEN")
 
 HUGGINGFACE_USERNAME = os.getenv("HUGGINGFACE_USERNAME")
-RAYONLABS_HF_USERNAME = "besimray"  # "rayonlabs"
+RAYONLABS_HF_USERNAME = "rayonlabs"
 
 CUSTOM_DATASET_TYPE = "custom"
 
 # DPO default dataset type
-DPO_DEFAULT_DATASET_TYPE = "chatml.default"
+DPO_DEFAULT_DATASET_TYPE = "chatml.default" 
 # Field names must match exactly what Axolotl's formatter expects
 DPO_DEFAULT_FIELD_PROMPT = "question"  # chatml.intel expects 'question'
 DPO_DEFAULT_FIELD_SYSTEM = "system"

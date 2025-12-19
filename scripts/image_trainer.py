@@ -5,13 +5,9 @@ Standalone script for image model training (SDXL or Flux)
 
 import argparse
 import asyncio
-import hashlib
-import json
 import os
 import subprocess
 import sys
-import re
-import time
 
 import toml
 
@@ -35,52 +31,6 @@ def get_model_path(path: str) -> str:
         if len(files) == 1 and files[0].endswith(".safetensors"):
             return os.path.join(path, files[0])
     return path
-def merge_model_config(default_config: dict, model_config: dict) -> dict:
-    """Merge default config with model-specific overrides."""
-    merged = {}
-
-    if isinstance(default_config, dict):
-        merged.update(default_config)
-
-    if isinstance(model_config, dict):
-        merged.update(model_config)
-
-    return merged if merged else None
-def get_config_for_model(lrs_config: dict, model_name: str) -> dict:
-    """Get configuration overrides based on model name."""
-    if not isinstance(lrs_config, dict):
-        return None
-
-    data = lrs_config.get("data")
-    default_config = lrs_config.get("default", {})
-
-    if isinstance(data, dict) and model_name in data:
-        return merge_model_config(default_config, data.get(model_name))
-
-    if default_config:
-        return default_config
-
-    return None
-
-def load_lrs_config(model_type: str, is_style: bool) -> dict:
-    """Load the appropriate LRS configuration based on model type and training type"""
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    config_dir = os.path.join(script_dir, "lrs")
-
-    if model_type == "flux":
-        config_file = os.path.join(config_dir, "flux.json")
-    elif is_style:
-        config_file = os.path.join(config_dir, "style_config.json")
-    else:
-        config_file = os.path.join(config_dir, "person_config.json")
-    
-    try:
-        with open(config_file, 'r') as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"Warning: Could not load LRS config from {config_file}: {e}", flush=True)
-        return None
-
 
 def create_config(task_id, model_path, model_name, model_type, expected_repo_name):
     """Get the training data directory"""
@@ -91,35 +41,6 @@ def create_config(task_id, model_path, model_name, model_type, expected_repo_nam
 
     with open(config_template_path, "r") as file:
         config = toml.load(file)
-
-    lrs_config = load_lrs_config(model_type, is_style)
-    if lrs_config:
-        model_hash = hash_model(model_name)
-        lrs_settings = get_config_for_model(lrs_config, model_hash)
-
-        if lrs_settings:
-            for optional_key in [
-                "max_grad_norm",
-                "prior_loss_weight",
-                "max_train_epochs",
-                "train_batch_size",
-                "optimizer_args",
-                "unet_lr",
-                "text_encoder_lr",
-                "noise_offset",
-                "min_snr_gamma",
-                "seed",
-                "lr_warmup_steps",
-                "loss_type",
-                "huber_c",
-                "huber_schedule",
-            ]:
-                if optional_key in lrs_settings:
-                    config[optional_key] = lrs_settings[optional_key]
-        else:
-            print(f"Warning: No LRS configuration found for model '{model_name}'", flush=True)
-    else:
-        print("Warning: Could not load LRS configuration, using default values", flush=True)
 
     # Update config
     network_config_person = {
@@ -192,29 +113,29 @@ def create_config(task_id, model_path, model_name, model_type, expected_repo_nam
 
     config_mapping = {
         228: {
-            "network_dim": 640,
-            "network_alpha": 420,
+            "network_dim": 160,
+            "network_alpha": 160,
             "network_args": []
         },
         235: {
-            "network_dim": 640,
-            "network_alpha": 420,
-            "network_args": ["conv_dim=4", "conv_alpha=4", "dropout=null"]
+            "network_dim": 160,
+            "network_alpha": 160,
+            "network_args": ["conv_dim=8", "conv_alpha=8", "dropout=null"]
         },
         456: {
-            "network_dim": 1280,
-            "network_alpha": 640,
+            "network_dim": 320,
+            "network_alpha": 160,
             "network_args": []
         },
         467: {
-            "network_dim": 1280,
-            "network_alpha": 640,
-            "network_args": ["conv_dim=4", "conv_alpha=4", "dropout=null"]
+            "network_dim": 320,
+            "network_alpha": 160,
+            "network_args": ["conv_dim=8", "conv_alpha=8", "dropout=null"]
         },
         699: {
-            "network_dim": 2560,
-            "network_alpha": 1280,
-            "network_args": ["conv_dim=4", "conv_alpha=4", "dropout=null"]
+            "network_dim": 512,
+            "network_alpha": 256,
+            "network_args": ["conv_dim=8", "conv_alpha=8", "dropout=null"]
         },
     }
 
@@ -235,11 +156,9 @@ def create_config(task_id, model_path, model_name, model_type, expected_repo_nam
         config["network_alpha"] = network_config["network_alpha"]
         config["network_args"] = network_config["network_args"]
 
-
     # Save config to file
     config_path = os.path.join(train_cst.IMAGE_CONTAINER_CONFIG_SAVE_PATH, f"{task_id}.toml")
     save_config_toml(config, config_path)
-    print(f"config is {config}", flush=True)
     print(f"Created config at {config_path}", flush=True)
     return config_path
 
@@ -271,7 +190,6 @@ def run_training(model_type, config_path):
             f"/app/sd-scripts/{model_type}_train_network.py",
             "--config_file", config_path
         ]
-
     try:
         print("Starting training subprocess...\n", flush=True)
         process = subprocess.Popen(
@@ -297,10 +215,6 @@ def run_training(model_type, config_path):
         print(f"Command: {' '.join(e.cmd) if isinstance(e.cmd, list) else e.cmd}", flush=True)
         raise RuntimeError(f"Training subprocess failed with exit code {e.returncode}")
 
-def hash_model(model: str) -> str:
-    model_bytes = model.encode('utf-8')
-    hashed = hashlib.sha256(model_bytes).hexdigest()
-    return hashed 
 
 async def main():
     print("---STARTING IMAGE TRAINING SCRIPT---", flush=True)
